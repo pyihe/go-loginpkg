@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
 	"github.com/pyihe/apple_validator"
-	"net/http"
-	"strings"
 )
 
 // LoginByWechat 使用微信第三方登录； 返回微信用户基本信息
