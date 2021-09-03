@@ -2,7 +2,7 @@ package loginpkg
 
 /**************Wechat****************/
 type WechatResponse struct {
-	Sex         int    `json:"sex"`          // 性别, 0: 未知, 1: 男, 3: 女
+	Sex         int    `json:"sex"`          // 性别, 0: 未知, 1: 男, 2: 女
 	OpenId      string `json:"openid"`       // openid
 	AccessToken string `json:"access_token"` // access_token
 	NickName    string `json:"nickname"`     // 昵称
