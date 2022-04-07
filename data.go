@@ -1,6 +1,6 @@
 package loginpkg
 
-/**************Wechat****************/
+// WechatResponse 微信登录回复
 type WechatResponse struct {
 	Sex         int    `json:"sex"`          // 性别, 0: 未知, 1: 男, 2: 女
 	OpenId      string `json:"openid"`       // openid
@@ -9,7 +9,7 @@ type WechatResponse struct {
 	Avatar      string `json:"headimgurl"`   // 头像
 }
 
-/**************Google****************/
+// GoogleResponse Google登录回复
 type GoogleResponse struct {
 	Iss     string `json:"iss"`     //
 	Aud     string `json:"aud"`     //
@@ -20,7 +20,7 @@ type GoogleResponse struct {
 	Exp     string `json:"exp"`     // google token过期时间
 }
 
-/**************Apple****************/
+// AppleToken apple登录回复
 type AppleToken struct {
 	headerStr string
 	claimsStr string
@@ -28,11 +28,14 @@ type AppleToken struct {
 	header    *AppleHeader //header
 	claims    *AppleClaim  //claims
 }
+
+// AppleHeader apple JWT Header
 type AppleHeader struct {
 	Kid string `json:"kid"` //apple公钥的密钥ID
 	Alg string `json:"alg"` //签名token的算法
 }
 
+// AppleClaim apple JWT claim
 type AppleClaim struct {
 	Iss            string `json:"iss"`   //签发者，固定值: https://appleid.apple.com
 	Sub            string `json:"sub"`   //用户唯一标识
@@ -49,7 +52,7 @@ type AppleClaim struct {
 	AuthTime       int64  `json:"auth_time"` //验证时间
 }
 
-/**************Facebook****************/
+// FacebookResponse 登录回复
 type FacebookResponse struct {
 	Name    string `json:"name"`
 	Id      string `json:"id"`
@@ -63,7 +66,7 @@ type FacebookResponse struct {
 	} `json:"picture"`
 }
 
-/**************Instagram****************/
+// InstagramResponse 登录回复
 type InstagramResponse struct {
 	AccessToken string `json:"access_token"`
 	UserId      int64  `json:"user_id"`
