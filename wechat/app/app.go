@@ -1,4 +1,4 @@
-package wechat
+package app
 
 import (
 	"fmt"
@@ -19,11 +19,12 @@ type Request struct {
 }
 
 type Response struct {
-	Sex         int    `json:"sex"`          // 性别, 0: 未知, 1: 男, 3: 女
-	OpenId      string `json:"openid"`       // openid
-	AccessToken string `json:"access_token"` // access_token
-	NickName    string `json:"nickname"`     // 昵称
-	Avatar      string `json:"headimgurl"`   // 头像
+	Sex         int    `json:"sex"`               // 性别, 0: 未知, 1: 男, 3: 女
+	OpenId      string `json:"openid"`            // openid
+	AccessToken string `json:"access_token"`      // access_token
+	NickName    string `json:"nickname"`          // 昵称
+	Avatar      string `json:"headimgurl"`        // 头像
+	UnionId     string `json:"unionid,omitempty"` // unionid
 }
 
 type wechat struct {
