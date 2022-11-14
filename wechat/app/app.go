@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -39,14 +40,18 @@ func (w wechat) Auth(req interface{}) (result interface{}, err error) {
 
 	var data Response
 	var url = fmt.Sprintf("https://api.weixin.qq.com/sns/oauth2/access_token?appid=%v&secret=%v&code=%v&grant_type=authorization_code", r.AppID, r.AppSecret, r.Code)
-
-	err = https.GetWithObj(http.DefaultClient, url, serialize.Get(jsonserialize.Name), &result)
+	err = https.GetWithObj(http.DefaultClient, url, serialize.Get(jsonserialize.Name), &data)
 	if err != nil {
 		return
 	}
 
+	if data.OpenId == "" || data.AccessToken == "" {
+		err = errors.New("invalid code")
+		return
+	}
+
 	url = fmt.Sprintf("https://api.weixin.qq.com/sns/userinfo?access_token=%v&openid=%v&lang=zh_CN", data.AccessToken, data.OpenId)
-	err = https.GetWithObj(http.DefaultClient, url, serialize.Get(jsonserialize.Name), &result)
+	err = https.GetWithObj(http.DefaultClient, url, serialize.Get(jsonserialize.Name), &data)
 	result = data
 	return
 }
