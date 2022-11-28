@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pyihe/go-loginpkg"
@@ -15,6 +16,7 @@ import (
 type Response struct {
 	Name    string `json:"name,omitempty"`
 	Avatar  string `json:"avatar,omitempty"`
+	Gender  int    `json:"gender,omitempty"`
 	OpenId  string `json:"openid,omitempty"`
 	UnionId string `json:"unionid,omitempty"`
 }
@@ -60,9 +62,36 @@ func (c checker) Auth(req interface{}) (result interface{}, err error) {
 	}
 	defer httpResponse.Body.Close()
 
-	response := Response{}
-	err = json.NewDecoder(httpResponse.Body).Decode(&response)
-	result = response
+	var tapResponse struct {
+		Now     int64 `json:"now,omitempty"`
+		Success bool  `json:"success,omitempty"`
+		Data    struct {
+			Avatar  string `json:"avatar,omitempty"`
+			Gender  string `json:"gender,omitempty"`
+			Name    string `json:"name,omitempty"`
+			OpenId  string `json:"openid,omitempty"`
+			UnionId string `json:"unionid,omitempty"`
+		} `json:"data,omitempty"`
+	}
+	err = json.NewDecoder(httpResponse.Body).Decode(&tapResponse)
+	if err != nil {
+		return
+	}
+
+	sex := 0
+	switch strings.ToLower(tapResponse.Data.Gender) {
+	case "1", "male":
+		sex = 1
+	case "2", "female":
+		sex = 2
+	}
+	result = Response{
+		Name:    tapResponse.Data.Name,
+		Avatar:  tapResponse.Data.Avatar,
+		Gender:  sex,
+		OpenId:  tapResponse.Data.OpenId,
+		UnionId: tapResponse.Data.UnionId,
+	}
 	return
 }
 
