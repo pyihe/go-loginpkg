@@ -4,44 +4,24 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pyihe/go-loginpkg"
 	"github.com/pyihe/go-pkg/https"
 	"github.com/pyihe/go-pkg/serialize"
 	jsonserialize "github.com/pyihe/go-pkg/serialize/json"
+
+	"github.com/pyihe/go-loginpkg"
 )
 
-const Name = "facebook"
+const (
+	ParamClientId     = "client_id"
+	ParamClientSecret = "client_secret"
+	ParamInputToken   = "input_token"
+)
 
-type Request struct {
-	ClientID     string
-	ClientSecret string
-	Token        string
-}
+type facebook struct{}
 
-type Response struct {
-	Name    string `json:"name"`
-	Id      string `json:"id"`
-	Picture struct {
-		Data struct {
-			Height       int    `json:"height"`
-			Width        int    `json:"width"`
-			IsSilhouette bool   `json:"is_silhouette"`
-			Url          string `json:"url"`
-		} `json:"data"`
-	} `json:"picture"`
-}
-
-type facebook struct {
-}
-
-func (f facebook) Auth(req interface{}) (result interface{}, err error) {
-	var r, ok = req.(Request)
-	if !ok {
-		err = loginpkg.ErrInvalidRequest
-		return
-	}
-	var fbAccessToken = fmt.Sprintf("%s|%s", r.ClientID, r.ClientSecret)
-	var url = fmt.Sprintf("https://graph.facebook.com/v9.0/debug_token?access_token=%s&input_token=%s", fbAccessToken, r.Token)
+func (f facebook) Verify(req loginpkg.Request) (loginpkg.Response, error) {
+	var fbAccessToken = fmt.Sprintf("%s|%s", req.Get(ParamClientId), req.Get(ParamClientSecret))
+	var url = fmt.Sprintf("https://graph.facebook.com/v9.0/debug_token?access_token=%s&input_token=%s", fbAccessToken, req.Get(ParamInputToken))
 	var getProfile = func(uid string) string {
 		return fmt.Sprintf("https://graph.facebook.com/%s?fields=name,picture&access_token=%s", uid, fbAccessToken)
 	}
@@ -63,23 +43,42 @@ func (f facebook) Auth(req interface{}) (result interface{}, err error) {
 		} `json:"data"`
 	}
 
-	err = https.GetWithObj(http.DefaultClient, url, serialize.Get(jsonserialize.Name), &data)
+	err := https.GetWithObj(http.DefaultClient, url, serialize.Get(jsonserialize.Name), &data)
 	if err != nil {
-		return
+		return loginpkg.NilResponse, err
 	}
 	if !data.Data.IsValid {
-		err = loginpkg.ErrAuthFail
-		return
+		return loginpkg.NilResponse, loginpkg.ErrExpired
 	}
 
 	url = getProfile(data.Data.UserId)
 
-	var rsp Response
+	var rsp struct {
+		Name    string `json:"name"`
+		Id      string `json:"id"`
+		Picture struct {
+			Data struct {
+				Height       int    `json:"height"`
+				Width        int    `json:"width"`
+				IsSilhouette bool   `json:"is_silhouette"`
+				Url          string `json:"url"`
+			} `json:"data"`
+		} `json:"picture"`
+	}
 	err = https.GetWithObj(http.DefaultClient, url, serialize.Get(jsonserialize.Name), &rsp)
-	result = rsp
-	return
+	if err != nil {
+		return loginpkg.NilResponse, err
+	}
+
+	return loginpkg.Response{
+		Avatar:   rsp.Picture.Data.Url,
+		Gender:   0,
+		Nickname: rsp.Name,
+		OpenId:   data.Data.UserId,
+		UnionId:  "",
+	}, nil
 }
 
 func init() {
-	loginpkg.Register(Name, facebook{})
+	loginpkg.Register(loginpkg.Facebook, facebook{})
 }

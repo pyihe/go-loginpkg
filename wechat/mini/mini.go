@@ -8,21 +8,20 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pyihe/go-loginpkg"
 	"github.com/pyihe/go-pkg/https"
 	"github.com/pyihe/go-pkg/serialize"
 	jsonserialize "github.com/pyihe/go-pkg/serialize/json"
+
+	"github.com/pyihe/go-loginpkg"
 )
 
-const Name = "wechat_mini"
-
-type Request struct {
-	AppID       string
-	AppSecret   string
-	Code        string
-	EncryptData string
-	Iv          string
-}
+const (
+	ParamAppId       = "app_id"
+	ParamAppSecret   = "app_secret"
+	ParamCode        = "code"
+	ParamEncryptData = "encrypt_data"
+	ParamIv          = "iv"
+)
 
 type Response struct {
 	OpenId   string
@@ -32,63 +31,62 @@ type Response struct {
 	Avatar   string
 }
 
-type weMini struct {
-}
+type weMini struct{}
 
 func init() {
-	loginpkg.Register(Name, weMini{})
+	loginpkg.Register(loginpkg.WechatMini, weMini{})
 }
 
-func (m weMini) Auth(arg interface{}) (result interface{}, err error) {
-	var wxData struct {
-		OpenId    string `json:"openId,omitempty"`
-		NickName  string `json:"nickName,omitempty"`
-		Gender    int    `json:"gender,omitempty"`
-		City      string `json:"city,omitempty"`
-		Province  string `json:"province,omitempty"`
-		Country   string `json:"country,omitempty"`
-		AvatarUrl string `json:"avatarUrl,omitempty"`
-		UnionId   string `json:"unionId,omitempty"`
-		WaterMark struct {
-			AppId string `json:"appid,omitempty"`
-		} `json:"watermark,omitempty"`
-	}
-	var r, ok = arg.(Request)
-	if !ok {
-		err = loginpkg.ErrInvalidRequest
-		return
+func (m weMini) Verify(req loginpkg.Request) (loginpkg.Response, error) {
+	var (
+		appId       = req.Get(ParamAppId)
+		appSecret   = req.Get(ParamAppSecret)
+		code        = req.Get(ParamCode)
+		encryptData = req.Get(ParamEncryptData)
+		iv          = req.Get(ParamIv)
+		wxData      struct {
+			OpenId    string `json:"openId,omitempty"`
+			NickName  string `json:"nickName,omitempty"`
+			Gender    int    `json:"gender,omitempty"`
+			City      string `json:"city,omitempty"`
+			Province  string `json:"province,omitempty"`
+			Country   string `json:"country,omitempty"`
+			AvatarUrl string `json:"avatarUrl,omitempty"`
+			UnionId   string `json:"unionId,omitempty"`
+			WaterMark struct {
+				AppId string `json:"appid,omitempty"`
+			} `json:"watermark,omitempty"`
+		}
+	)
+	sessionKey, err := m.getSessionKeyAndOpenID(appId, appSecret, code)
+	if err != nil {
+		return loginpkg.NilResponse, err
 	}
 
-	sessionKey, err := m.getSessionKeyAndOpenID(r.AppID, r.AppSecret, r.Code)
+	encryptBytes, err := base64.StdEncoding.DecodeString(encryptData)
 	if err != nil {
-		return
+		return loginpkg.NilResponse, err
+	}
+	ivBytes, err := base64.StdEncoding.DecodeString(iv)
+	if err != nil {
+		return loginpkg.NilResponse, err
 	}
 
-	encryptData, err := base64.StdEncoding.DecodeString(r.EncryptData)
+	realData, err := aES128CBCDecrypt(encryptBytes, sessionKey, ivBytes)
 	if err != nil {
-		return
-	}
-	iv, err := base64.StdEncoding.DecodeString(r.Iv)
-	if err != nil {
-		return
-	}
-
-	realData, err := aES128CBCDecrypt(encryptData, sessionKey, iv)
-	if err != nil {
-		return
+		return loginpkg.NilResponse, err
 	}
 
 	if err = serialize.Get(jsonserialize.Name).Unmarshal(realData, &wxData); err != nil {
-		return
+		return loginpkg.NilResponse, err
 	}
-	response := Response{
-		OpenId:   wxData.OpenId,
-		NickName: wxData.NickName,
-		Gender:   wxData.Gender,
-		UnionId:  wxData.UnionId,
+	return loginpkg.Response{
 		Avatar:   wxData.AvatarUrl,
-	}
-	return response, nil
+		Gender:   wxData.Gender,
+		Nickname: wxData.NickName,
+		OpenId:   wxData.OpenId,
+		UnionId:  wxData.UnionId,
+	}, nil
 }
 
 func (m weMini) getSessionKeyAndOpenID(appId, secret, code string) (sessionKey []byte, err error) {

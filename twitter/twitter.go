@@ -5,31 +5,22 @@ import (
 
 	twittersdk "github.com/dghubble/go-twitter/twitter"
 	"github.com/dghubble/oauth1"
+
 	"github.com/pyihe/go-loginpkg"
 )
 
-const Name = "twitter"
+const (
+	ParamClientId     = "client_id"
+	ParamClientSecret = "client_secret"
+	ParamToken        = "token"
+	ParamTokenSecret  = "token_secret"
+)
 
-type Response = twittersdk.User
+type twitter struct{}
 
-type Request struct {
-	ClientID     string
-	ClientSecret string
-	Token        string
-	TokenSecret  string
-}
-
-type twitter struct {
-}
-
-func (t twitter) Auth(req interface{}) (result interface{}, err error) {
-	var r, ok = req.(Request)
-	if !ok {
-		err = loginpkg.ErrInvalidRequest
-		return
-	}
-	var oauthConfig = oauth1.NewConfig(r.ClientID, r.ClientSecret)
-	var tokenConfig = oauth1.NewToken(r.Token, r.TokenSecret)
+func (t twitter) Verify(req loginpkg.Request) (loginpkg.Response, error) {
+	var oauthConfig = oauth1.NewConfig(req.Get(ParamClientId), req.Get(ParamClientSecret))
+	var tokenConfig = oauth1.NewToken(req.Get(ParamToken), req.Get(ParamTokenSecret))
 	var client = twittersdk.NewClient(oauthConfig.Client(context.Background(), tokenConfig))
 	var param = &twittersdk.AccountVerifyParams{
 		IncludeEntities: twittersdk.Bool(true),
@@ -37,12 +28,22 @@ func (t twitter) Auth(req interface{}) (result interface{}, err error) {
 		IncludeEmail:    twittersdk.Bool(false),
 	}
 
-	var user *twittersdk.User
-	user, _, err = client.Accounts.VerifyCredentials(param)
-	result = user
-	return
+	info, _, err := client.Accounts.VerifyCredentials(param)
+	if err != nil {
+		return loginpkg.NilResponse, err
+	}
+	if info == nil {
+		return loginpkg.NilResponse, loginpkg.ErrExpired
+	}
+	return loginpkg.Response{
+		Avatar:   info.ProfileImageURL,
+		Gender:   0,
+		Nickname: info.Name,
+		OpenId:   info.IDStr,
+		UnionId:  "",
+	}, nil
 }
 
 func init() {
-	loginpkg.Register(Name, twitter{})
+	loginpkg.Register(loginpkg.Twitter, twitter{})
 }

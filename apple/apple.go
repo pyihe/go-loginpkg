@@ -1,41 +1,42 @@
 package apple
 
 import (
-	"errors"
-
 	"github.com/pyihe/apple_validator"
+
 	"github.com/pyihe/go-loginpkg"
 )
 
-const Name = "apple"
+const (
+	ParamIdentityToken = "identity_token"
+)
 
-type Response = apple_validator.JWTToken
-
-type apple struct {
-	validator *apple_validator.Validator
+type validator struct {
+	*apple_validator.Validator
 }
 
-func (a apple) Auth(req interface{}) (result interface{}, err error) {
-	var jwtToken apple_validator.JWTToken
-	var token, ok = req.(string)
-	if !ok {
-		err = loginpkg.ErrInvalidRequest
-		return
-	}
+func newValidator() loginpkg.Validator {
+	return validator{Validator: apple_validator.NewValidator()}
+}
 
-	if jwtToken, err = a.validator.CheckIdentityToken(token); err != nil {
-		return
+func (a validator) Verify(req loginpkg.Request) (loginpkg.Response, error) {
+	jwtToken, err := a.CheckIdentityToken(req.Get(ParamIdentityToken))
+	if err != nil {
+		return loginpkg.NilResponse, err
 	}
-	if ok, err = jwtToken.IsValid(); err != nil {
-		return
+	if ok, err := jwtToken.IsValid(); err != nil {
+		return loginpkg.NilResponse, err
 	} else if !ok {
-		err = errors.New("invalid token")
-		return
+		return loginpkg.NilResponse, loginpkg.ErrExpired
 	}
-	result = jwtToken
-	return
+	return loginpkg.Response{
+		Avatar:   "",
+		Gender:   0,
+		Nickname: "",
+		OpenId:   jwtToken.Sub(),
+		UnionId:  "",
+	}, nil
 }
 
 func init() {
-	loginpkg.Register(Name, apple{validator: apple_validator.NewValidator()})
+	loginpkg.Register(loginpkg.Apple, newValidator())
 }

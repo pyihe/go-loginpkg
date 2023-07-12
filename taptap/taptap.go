@@ -9,46 +9,36 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pyihe/go-loginpkg"
 	"github.com/pyihe/secret"
+
+	"github.com/pyihe/go-loginpkg"
 )
 
-type Response struct {
-	Name    string `json:"name,omitempty"`
-	Avatar  string `json:"avatar,omitempty"`
-	Gender  int    `json:"gender,omitempty"`
-	OpenId  string `json:"openid,omitempty"`
-	UnionId string `json:"unionid,omitempty"`
+const (
+	ParamClientId    = "client_id"
+	ParamMacKey      = "mac_key"
+	ParamAccessToken = "access_token"
+)
+
+type validator struct {
+	hasher secret.Hasher
 }
 
-type Request struct {
-	ClientId    string
-	AccessToken string
-	MacKey      string
+func newValidator() loginpkg.Validator {
+	return validator{hasher: secret.NewHasher()}
 }
 
-const Name = "taptap"
-
-type checker struct {
-}
-
-func (c checker) Auth(req interface{}) (result interface{}, err error) {
-	request, ok := req.(Request)
-	if !ok {
-		err = loginpkg.ErrInvalidRequest
-		return
-	}
-
+func (c validator) Verify(req loginpkg.Request) (result loginpkg.Response, err error) {
 	const domain = "openapi.taptap.com"
 
-	uri := fmt.Sprintf("/account/profile/v1?client_id=%s", request.ClientId)
+	uri := fmt.Sprintf("/account/profile/v1?client_id=%s", req.Get(ParamClientId))
 	now := time.Now()
 	unix := now.Unix()
 	nonce := now.UnixNano()
 	signStr := fmt.Sprintf("%d\n%d\n%s\n%s\n%s\n443\n\n", unix, nonce, http.MethodGet, uri, domain)
-	mac := secret.NewHasher().MAC(crypto.SHA1, []byte(signStr), []byte(request.MacKey))
+	mac := c.hasher.MAC(crypto.SHA1, []byte(signStr), []byte(req.Get(ParamMacKey)))
 	macToken := base64.StdEncoding.EncodeToString(mac)
-	auth := fmt.Sprintf("MAC id=\"%s\",ts=\"%d\",nonce=\"%d\",mac=\"%s\"", request.AccessToken, unix, nonce, macToken)
+	auth := fmt.Sprintf("MAC id=\"%s\",ts=\"%d\",nonce=\"%d\",mac=\"%s\"", req.Get(ParamAccessToken), unix, nonce, macToken)
 
 	httpRequest, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s%s", domain, uri), nil)
 	if err != nil {
@@ -85,16 +75,16 @@ func (c checker) Auth(req interface{}) (result interface{}, err error) {
 	case "2", "female":
 		sex = 2
 	}
-	result = Response{
-		Name:    tapResponse.Data.Name,
-		Avatar:  tapResponse.Data.Avatar,
-		Gender:  sex,
-		OpenId:  tapResponse.Data.OpenId,
-		UnionId: tapResponse.Data.UnionId,
+	result = loginpkg.Response{
+		Nickname: tapResponse.Data.Name,
+		Avatar:   tapResponse.Data.Avatar,
+		Gender:   sex,
+		OpenId:   tapResponse.Data.OpenId,
+		UnionId:  tapResponse.Data.UnionId,
 	}
 	return
 }
 
 func init() {
-	loginpkg.Register(Name, checker{})
+	loginpkg.Register(loginpkg.TapTap, newValidator())
 }
