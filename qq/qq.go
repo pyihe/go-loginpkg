@@ -94,3 +94,7 @@ func (qq qqValidator) Verify(req loginpkg.Request) (loginpkg.Response, error) {
 		UnionId:  "",
 	}, nil
 }
+
+func init() {
+	loginpkg.Register(loginpkg.QQ, qqValidator{})
+}
